@@ -13,12 +13,17 @@ export default function JobsSearch() {
   const [error, setError] = useState<string | null>(null);
   const [fallbackLinks, setFallbackLinks] = useState<ExternalJobLink[]>([]);
   const [searched, setSearched] = useState(false);
+  // major: 대기업/매출1000대기업/외국계기업으로 좁힌 기본 목록. all: 직접 검색해서 나온, 기업 제한 없는 결과.
+  const [scope, setScope] = useState<"major" | "all">("major");
 
-  async function search(term: string) {
+  async function search(term: string, nextScope: "major" | "all") {
     setLoading(true);
     setSearched(true);
+    setScope(nextScope);
     try {
-      const res = await fetch(`/api/jobs/search?keyword=${encodeURIComponent(term)}`);
+      const res = await fetch(
+        `/api/jobs/search?keyword=${encodeURIComponent(term)}&scope=${nextScope}`
+      );
       const data = await res.json();
       setJobs(data.jobs ?? []);
       setError(data.error ?? null);
@@ -30,10 +35,10 @@ export default function JobsSearch() {
     }
   }
 
-  // 페이지에 들어오자마자 검색 없이 기본 최신 공고를 바로 띄운다.
+  // 페이지에 들어오자마자 검색 없이, 주요 대기업/매출1000대기업/외국계기업 공고를 바로 띄운다.
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/jobs/search?keyword=${encodeURIComponent("")}`)
+    fetch(`/api/jobs/search?keyword=&scope=major`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error("요청 실패"))))
       .then((data) => {
         if (cancelled) return;
@@ -58,17 +63,24 @@ export default function JobsSearch() {
 
   return (
     <div>
-      <PageHeader title="채용공고" description="최신 채용공고를 바로 보여드려요. 직무나 키워드로 좁혀볼 수도 있어요." />
+      <PageHeader
+        title="채용공고"
+        description={
+          scope === "major"
+            ? "대기업·매출 1000대 기업·외국계기업 공고를 바로 보여드려요. 검색하면 모든 기업의 공고를 찾아볼 수 있어요."
+            : `"${keyword}" 검색 결과예요. 모든 기업이 포함됩니다.`
+        }
+      />
 
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          search(keyword);
+          search(keyword, "all");
         }}
-        className="flex gap-2 mb-6"
+        className="flex gap-2 mb-3"
       >
         <Input
-          placeholder="직무, 키워드 (예: 프론트엔드 개발자)"
+          placeholder="직무, 키워드, 기업명으로 검색 (예: 프론트엔드 개발자)"
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
         />
@@ -76,6 +88,18 @@ export default function JobsSearch() {
           <Search size={15} /> {loading ? "불러오는 중..." : "검색"}
         </Button>
       </form>
+
+      {scope === "all" && (
+        <button
+          onClick={() => {
+            setKeyword("");
+            search("", "major");
+          }}
+          className="mb-3 text-xs text-[#2a78d6] dark:text-[#3987e5] hover:underline"
+        >
+          ← 대기업·1000대 기업·외국계기업 기본 목록으로 돌아가기
+        </button>
+      )}
 
       <div className="mb-6">
         {loading && jobs.length === 0 ? (

@@ -7,11 +7,20 @@ const SEARCH_URL = "https://www.saramin.co.kr/zf_user/search";
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
 
+// 사람인 검색결과 페이지의 "기업형태" 필터 값. 대기업(scale001)/매출1000대기업(scale002)/
+// 외국계기업(foreign)만 남기면 결과가 주요 대기업·1000대 기업·외국계기업으로 좁혀진다.
+// (사람인 검색 UI에서 해당 체크박스를 켰을 때 실제로 붙는 쿼리스트링을 확인해 반영함)
+const MAJOR_COMPANY_TYPES = ["scale001", "scale002", "foreign"];
+
 export async function scrapeSaraminJobs(
-  keyword: string
+  keyword: string,
+  options?: { majorOnly?: boolean }
 ): Promise<{ jobs: JobPosting[]; error?: string }> {
   try {
     const params = new URLSearchParams({ searchword: keyword.trim() || "채용" });
+    if (options?.majorOnly) {
+      for (const type of MAJOR_COMPANY_TYPES) params.append("company_type[]", type);
+    }
     const res = await fetch(`${SEARCH_URL}?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT },
       signal: AbortSignal.timeout(20000),

@@ -15,10 +15,13 @@ export async function GET(req: NextRequest) {
   if (session instanceof NextResponse) return session;
 
   const keyword = req.nextUrl.searchParams.get("keyword")?.trim() ?? "";
+  // scope=major: 검색 없이 처음 페이지에 뜨는 기본 목록 — 주요 대기업/매출1000대기업/
+  // 외국계기업으로 좁힌다. 사용자가 직접 검색하면 scope=all로 어떤 기업이든 나오게 한다.
+  const majorOnly = req.nextUrl.searchParams.get("scope") !== "all";
 
   const [workNetResult, scrapeResult] = await Promise.all([
     searchWorkNetJobs(keyword),
-    scrapeSaraminJobs(keyword),
+    scrapeSaraminJobs(keyword, { majorOnly }),
   ]);
 
   const jobs = [...workNetResult.jobs, ...scrapeResult.jobs];
