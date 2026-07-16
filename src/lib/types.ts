@@ -13,6 +13,31 @@ export interface User {
   last_login_at: string | null;
 }
 
+export interface TokenTransaction {
+  id: string;
+  user_id: string;
+  delta: number;
+  reason: string;
+  balance_after: number;
+  created_at: string;
+}
+
+export type ChargeRequestStatus = "pending" | "approved" | "rejected";
+
+export interface ChargeRequest {
+  id: string;
+  user_id: string;
+  claimed_amount_krw: number;
+  depositor_name: string;
+  memo: string | null;
+  status: ChargeRequestStatus;
+  granted_tokens: number | null;
+  admin_note: string | null;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+}
+
 export type ProfileCategory = "info" | "history" | "career" | "experience" | "etc";
 
 export interface ProfileSource {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { evaluateInterviewAnswer } from "@/lib/interviewPractice";
 import { sessionOrResponse } from "@/lib/session";
+import { withTokenCharge, InsufficientTokensError } from "@/lib/tokens";
 import type { InterviewAnswer } from "@/lib/types";
 
 export const maxDuration = 300;
@@ -36,14 +37,14 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/application
   }
 
   try {
-    const { record, costUsd } = await evaluateInterviewAnswer(
-      session.id,
-      id,
-      question_text.trim(),
-      answer.trim()
+    const { record, costUsd } = await withTokenCharge(session.id, session.role, "interview_practice", () =>
+      evaluateInterviewAnswer(session.id, id, question_text.trim(), answer.trim())
     );
     return NextResponse.json({ record, costUsd }, { status: 201 });
   } catch (err) {
+    if (err instanceof InsufficientTokensError) {
+      return NextResponse.json({ error: err.message }, { status: 402 });
+    }
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }

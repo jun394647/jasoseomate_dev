@@ -164,6 +164,22 @@ async function migrate(db: DbAdapter) {
     );
     CREATE INDEX IF NOT EXISTS idx_token_tx_user ON token_transactions(user_id);
 
+    CREATE TABLE IF NOT EXISTS charge_requests (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      claimed_amount_krw INTEGER NOT NULL,
+      depositor_name TEXT NOT NULL,
+      memo TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      granted_tokens INTEGER,
+      admin_note TEXT,
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_charge_requests_status ON charge_requests(status);
+    CREATE INDEX IF NOT EXISTS idx_charge_requests_user ON charge_requests(user_id);
+
     CREATE TABLE IF NOT EXISTS profile_sources (
       id TEXT PRIMARY KEY,
       user_id TEXT NOT NULL DEFAULT '',

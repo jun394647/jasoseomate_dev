@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "./SignOutButton";
+import TokenBadge from "./TokenBadge";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
@@ -83,11 +84,14 @@ export default function Sidebar() {
       </nav>
       <div className="px-3 py-3 border-t border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)]">
         {status === "authenticated" && session?.user && (
-          <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-[rgba(11,11,11,0.08)] dark:border-[rgba(255,255,255,0.08)]">
-            <span className="text-xs text-[#52514e] dark:text-[#c3c2b7] truncate">
-              {session.user.email}
-            </span>
-            <SignOutButton />
+          <div className="pb-2 mb-2 border-b border-[rgba(11,11,11,0.08)] dark:border-[rgba(255,255,255,0.08)]">
+            <div className="flex items-center justify-between gap-2 px-1">
+              <span className="text-xs text-[#52514e] dark:text-[#c3c2b7] truncate">
+                {session.user.email}
+              </span>
+              <SignOutButton />
+            </div>
+            <TokenBadge />
           </div>
         )}
         <ThemeToggle />

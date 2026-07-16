@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateCompanyReport } from "@/lib/companyReport";
 import { sessionOrResponse } from "@/lib/session";
+import { withTokenCharge, InsufficientTokensError } from "@/lib/tokens";
 
 export const maxDuration = 300;
 
@@ -11,9 +12,14 @@ export async function POST(_req: NextRequest, ctx: RouteContext<"/api/companies/
   const { id } = await ctx.params;
 
   try {
-    const { report, costUsd } = await generateCompanyReport(session.id, id);
+    const { report, costUsd } = await withTokenCharge(session.id, session.role, "company_report", () =>
+      generateCompanyReport(session.id, id)
+    );
     return NextResponse.json({ ai_report: report, costUsd });
   } catch (err) {
+    if (err instanceof InsufficientTokensError) {
+      return NextResponse.json({ error: err.message }, { status: 402 });
+    }
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
 }
