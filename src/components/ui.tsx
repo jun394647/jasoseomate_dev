@@ -13,7 +13,7 @@ export function Card({ children, className = "" }: { children: ReactNode; classN
   );
 }
 
-export function PageHeader({ title, description, action }: { title: string; description?: string; action?: ReactNode }) {
+export function PageHeader({ title, description, action }: { title: ReactNode; description?: string; action?: ReactNode }) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between mb-6 gap-4">
       <div className="min-w-0">

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource, deleteSourceChunks } from "@/lib/rag";
+import { guardNotion } from "@/lib/notionAuth";
 
 export async function PUT(req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
+  const locked = guardNotion(req);
+  if (locked) return locked;
   const { id } = await ctx.params;
   const body = await req.json();
   const { title, category, content } = body as {
@@ -32,7 +35,9 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/profile/[id]
   return NextResponse.json(row);
 }
 
-export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
+export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
+  const locked = guardNotion(req);
+  if (locked) return locked;
   const { id } = await ctx.params;
   const db = await getDb();
   await db.prepare(`DELETE FROM profile_sources WHERE id = ?`).run(id);

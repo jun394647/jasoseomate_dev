@@ -185,7 +185,16 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
   return (
     <div>
       <PageHeader
-        title="내 정보"
+        title={
+          <span className="inline-flex items-center gap-2">
+            내 정보
+            {notionUnlocked && (
+              <span className="text-[10px] font-medium text-[#2a78d6] dark:text-[#3987e5] bg-[#2a78d6]/10 rounded-full px-2 py-0.5">
+                노션 연동됨
+              </span>
+            )}
+          </span>
+        }
         description="정보/이력/경력/경험/기타로 나누어 등록하면 자소서 생성 시 자동으로 참고합니다. 경험 항목은 STAR 기법이나 3C4P 분석으로 구조화해서 작성할 수 있습니다."
         action={
           mode === "none" ? (

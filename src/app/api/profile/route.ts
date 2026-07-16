@@ -3,8 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource } from "@/lib/rag";
 import type { ProfileSource } from "@/lib/types";
+import { guardNotion } from "@/lib/notionAuth";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const locked = guardNotion(req);
+  if (locked) return locked;
   const db = await getDb();
   const rows = (await db
     .prepare(`SELECT * FROM profile_sources ORDER BY updated_at DESC`)
@@ -13,6 +16,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const locked = guardNotion(req);
+  if (locked) return locked;
   const body = await req.json();
   const { title, category, content } = body as {
     title?: string;

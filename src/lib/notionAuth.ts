@@ -11,10 +11,21 @@ export function unlockToken(): string | null {
   return createHash("sha256").update(pw.trim()).digest("hex");
 }
 
-export function isNotionUnlocked(req: NextRequest): boolean {
+function checkToken(cookieValue: string | undefined): boolean {
   const token = unlockToken();
   if (!token) return false; // 비밀번호 미설정 = 노션 기능 전체 잠금
-  return req.cookies.get(UNLOCK_COOKIE)?.value === token;
+  return cookieValue === token;
+}
+
+export function isNotionUnlocked(req: NextRequest): boolean {
+  return checkToken(req.cookies.get(UNLOCK_COOKIE)?.value);
+}
+
+// 서버 컴포넌트(NextRequest 없음)에서 쓰는 버전
+export async function isNotionUnlockedServer(): Promise<boolean> {
+  const { cookies } = await import("next/headers");
+  const store = await cookies();
+  return checkToken(store.get(UNLOCK_COOKIE)?.value);
 }
 
 // 잠겨 있으면 403 응답을, 열려 있으면 null을 반환

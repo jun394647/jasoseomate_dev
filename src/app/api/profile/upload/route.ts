@@ -3,8 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource } from "@/lib/rag";
 import { extractTextFromFile } from "@/lib/parse";
+import { guardNotion } from "@/lib/notionAuth";
 
 export async function POST(req: NextRequest) {
+  const locked = guardNotion(req);
+  if (locked) return locked;
   const form = await req.formData();
   const file = form.get("file");
   const title = (form.get("title") as string) || "";
