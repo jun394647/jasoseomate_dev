@@ -34,7 +34,7 @@ export async function searchWorkNetJobs(
     if (keyword.trim()) params.set("keyword", keyword.trim());
 
     const res = await fetch(`${ENDPOINT}?${params.toString()}`, {
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) {
       return { configured: true, jobs: [], error: `워크넷 API 오류 (${res.status})` };

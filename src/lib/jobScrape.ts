@@ -14,7 +14,7 @@ export async function scrapeSaraminJobs(
     const params = new URLSearchParams({ searchword: keyword.trim() || "채용" });
     const res = await fetch(`${SEARCH_URL}?${params.toString()}`, {
       headers: { "User-Agent": USER_AGENT },
-      signal: AbortSignal.timeout(10000),
+      signal: AbortSignal.timeout(20000),
     });
     if (!res.ok) {
       return { jobs: [], error: `사람인 페이지 요청 실패 (${res.status})` };
