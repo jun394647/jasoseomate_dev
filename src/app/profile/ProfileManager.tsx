@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Plus, Upload, Pencil, Trash2, X } from "lucide-react";
+import { useRef, useState } from "react";
+import { Plus, Upload, X, Download, FileUp } from "lucide-react";
 import { Card, PageHeader, Button, Input, Textarea, Select, EmptyState } from "@/components/ui";
 import type { ProfileSource, ProfileCategory } from "@/lib/types";
 import { PROFILE_CATEGORY_LABELS } from "@/lib/types";
@@ -10,8 +10,8 @@ import {
   FRAMEWORK_LABELS,
   fieldsForFramework,
   composeStructuredContent,
-  parseStructuredContent,
 } from "@/lib/profileTemplates";
+import SourceCard from "./SourceCard";
 
 const CATEGORIES = Object.keys(PROFILE_CATEGORY_LABELS) as ProfileCategory[];
 const FRAMEWORKS = Object.keys(FRAMEWORK_LABELS) as ExperienceFramework[];
@@ -19,8 +19,9 @@ const FRAMEWORKS = Object.keys(FRAMEWORK_LABELS) as ExperienceFramework[];
 export default function ProfileManager({ initialSources }: { initialSources: ProfileSource[] }) {
   const [sources, setSources] = useState(initialSources);
   const [mode, setMode] = useState<"none" | "text" | "upload">("none");
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const importRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ProfileCategory>("experience");
@@ -37,25 +38,6 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
     setStructuredValues({});
     setFile(null);
     setMode("none");
-    setEditingId(null);
-  }
-
-  function startEdit(s: ProfileSource) {
-    setEditingId(s.id);
-    setTitle(s.title);
-    setCategory(s.category);
-    setMode("text");
-
-    const parsed = s.category === "experience" ? parseStructuredContent(s.content) : null;
-    if (parsed) {
-      setFramework(parsed.framework);
-      setStructuredValues(parsed.values);
-      setContent("");
-    } else {
-      setFramework("free");
-      setStructuredValues({});
-      setContent(s.content);
-    }
   }
 
   const isStructured = category === "experience" && framework !== "free";
@@ -69,18 +51,14 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
     }
     setBusy(true);
     try {
-      const url = editingId ? `/api/profile/${editingId}` : "/api/profile";
-      const method = editingId ? "PUT" : "POST";
-      const res = await fetch(url, {
-        method,
+      const res = await fetch("/api/profile", {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title, category, content: finalContent }),
       });
       if (!res.ok) throw new Error((await res.json()).error);
       const saved = (await res.json()) as ProfileSource;
-      setSources((prev) =>
-        editingId ? prev.map((s) => (s.id === saved.id ? saved : s)) : [saved, ...prev]
-      );
+      setSources((prev) => [saved, ...prev]);
       resetForm();
     } catch (err) {
       alert((err as Error).message || "저장에 실패했습니다.");
@@ -110,10 +88,22 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
     }
   }
 
-  async function remove(id: string) {
-    if (!confirm("이 자료를 삭제할까요?")) return;
-    setSources((prev) => prev.filter((s) => s.id !== id));
-    await fetch(`/api/profile/${id}`, { method: "DELETE" });
+  async function importMd(mdFile: File) {
+    setImporting(true);
+    try {
+      const form = new FormData();
+      form.set("file", mdFile);
+      const res = await fetch("/api/profile/import", { method: "POST", body: form });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setSources((prev) => [...(data.created as ProfileSource[]), ...prev]);
+      alert(`${data.created.length}개 항목을 불러왔습니다.`);
+    } catch (err) {
+      alert((err as Error).message || "불러오기에 실패했습니다.");
+    } finally {
+      setImporting(false);
+      if (importRef.current) importRef.current.value = "";
+    }
   }
 
   return (
@@ -124,6 +114,24 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
         action={
           mode === "none" ? (
             <>
+              <a href="/api/profile/export" download>
+                <Button variant="secondary">
+                  <Download size={15} /> MD로 내보내기
+                </Button>
+              </a>
+              <input
+                ref={importRef}
+                type="file"
+                accept=".md,.txt"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) importMd(f);
+                }}
+              />
+              <Button variant="secondary" onClick={() => importRef.current?.click()} disabled={importing}>
+                <FileUp size={15} /> {importing ? "불러오는 중..." : "MD 불러오기"}
+              </Button>
               <Button variant="secondary" onClick={() => setMode("upload")}>
                 <Upload size={15} /> 파일 업로드
               </Button>
@@ -205,7 +213,7 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
 
             <div className="flex justify-end">
               <Button type="submit" disabled={busy}>
-                {editingId ? "수정 저장" : "저장"}
+                저장
               </Button>
             </div>
           </form>
@@ -252,35 +260,14 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
       ) : (
         <div className="space-y-3">
           {sources.map((s) => (
-            <Card key={s.id} className="p-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs rounded-full px-2 py-0.5 bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium">
-                      {PROFILE_CATEGORY_LABELS[s.category]}
-                    </span>
-                    <h3 className="text-sm font-medium text-[#0b0b0b] dark:text-white truncate">{s.title}</h3>
-                  </div>
-                  <p className="text-sm text-[#52514e] dark:text-[#c3c2b7] whitespace-pre-wrap line-clamp-3">
-                    {s.content}
-                  </p>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={() => startEdit(s)}
-                    className="p-1.5 rounded hover:bg-black/5 dark:hover:bg-white/5 text-[#52514e] dark:text-[#c3c2b7]"
-                  >
-                    <Pencil size={14} />
-                  </button>
-                  <button
-                    onClick={() => remove(s.id)}
-                    className="p-1.5 rounded hover:bg-[#d03b3b]/10 text-[#d03b3b]"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              </div>
-            </Card>
+            <SourceCard
+              key={s.id}
+              source={s}
+              onUpdated={(updated) =>
+                setSources((prev) => prev.map((p) => (p.id === updated.id ? updated : p)))
+              }
+              onDeleted={(id) => setSources((prev) => prev.filter((p) => p.id !== id))}
+            />
           ))}
         </div>
       )}
