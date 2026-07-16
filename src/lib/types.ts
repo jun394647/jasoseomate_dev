@@ -1,7 +1,23 @@
+export type UserRole = "admin" | "member";
+
+export interface User {
+  id: string;
+  google_id: string | null;
+  email: string;
+  name: string | null;
+  image: string | null;
+  role: UserRole;
+  token_balance: number;
+  created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
+}
+
 export type ProfileCategory = "info" | "history" | "career" | "experience" | "etc";
 
 export interface ProfileSource {
   id: string;
+  user_id: string;
   title: string;
   category: ProfileCategory;
   content: string;
@@ -13,6 +29,7 @@ export type EssayResult = "합격" | "불합격" | "unknown";
 
 export interface SampleEssay {
   id: string;
+  user_id: string;
   company_name: string | null;
   industry: string | null;
   job_role: string | null;
@@ -26,6 +43,7 @@ export interface SampleEssay {
 
 export interface Company {
   id: string;
+  user_id: string;
   name: string;
   industry: string | null;
   analysis: string | null;
@@ -65,6 +83,7 @@ export type ApplicationStatus =
 
 export interface Application {
   id: string;
+  user_id: string;
   company_id: string;
   job_role: string;
   status: ApplicationStatus;
@@ -120,6 +139,7 @@ export type ChunkSourceType = "profile" | "sample_essay" | "company" | "company_
 
 export interface Chunk {
   id: string;
+  user_id: string;
   source_type: ChunkSourceType;
   source_id: string;
   content: string;

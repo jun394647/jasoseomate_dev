@@ -20,14 +20,14 @@ const SYSTEM_PROMPT = `당신은 한국 기업 채용 면접관 출신의 면접
 
 총 8~10개. 마크다운 서식(#, **), 이모지 없이 위 번호 목록만 출력한다.`;
 
-export async function generateInterviewQuestions(applicationId: string): Promise<{
+export async function generateInterviewQuestions(userId: string, applicationId: string): Promise<{
   text: string;
   costUsd: number | null;
 }> {
   const db = await getDb();
   const application = (await db
-    .prepare(`SELECT * FROM applications WHERE id = ?`)
-    .get(applicationId)) as Application | undefined;
+    .prepare(`SELECT * FROM applications WHERE id = ? AND user_id = ?`)
+    .get(applicationId, userId)) as Application | undefined;
   if (!application) throw new Error("지원 정보를 찾을 수 없습니다.");
 
   const company = (await db

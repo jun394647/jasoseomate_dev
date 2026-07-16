@@ -1,20 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getDb } from "@/lib/db";
 import { reviewEssay } from "@/lib/review";
+import { sessionOrResponse } from "@/lib/session";
 
 export const maxDuration = 300;
 
 export async function POST(_req: NextRequest, ctx: RouteContext<"/api/questions/[id]/review">) {
-  const { id } = await ctx.params;
-  const db = await getDb();
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
 
-  const question = await db.prepare(`SELECT id FROM essay_questions WHERE id = ?`).get(id);
-  if (!question) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
+  const { id } = await ctx.params;
 
   try {
-    const { feedback, costUsd } = await reviewEssay(id);
+    const { feedback, costUsd } = await reviewEssay(session.id, id);
     return NextResponse.json({ feedback, costUsd });
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

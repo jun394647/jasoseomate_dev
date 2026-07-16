@@ -2,20 +2,37 @@ import { getDb } from "@/lib/db";
 import { Card, PageHeader, EmptyState } from "@/components/ui";
 import StatusDistribution from "@/components/StatusDistribution";
 import BackupControls from "@/components/BackupControls";
+import { getSession } from "@/lib/session";
 import type { ApplicationStatus } from "@/lib/types";
 import Link from "next/link";
 import { UserRound, BookMarked, Building2, FolderKanban } from "lucide-react";
 
 export default async function DashboardPage() {
+  const session = await getSession();
+  if (!session) {
+    return (
+      <div>
+        <PageHeader title="대시보드" description="자소서 작성 현황을 한눈에 확인하세요." />
+        <EmptyState>로그인이 필요합니다.</EmptyState>
+      </div>
+    );
+  }
+
   const db = await getDb();
 
-  const profileCount = ((await db.prepare(`SELECT COUNT(*) AS c FROM profile_sources`).get()) as { c: number }).c;
-  const sampleCount = ((await db.prepare(`SELECT COUNT(*) AS c FROM sample_essays`).get()) as { c: number }).c;
-  const companyCount = ((await db.prepare(`SELECT COUNT(*) AS c FROM companies`).get()) as { c: number }).c;
+  const profileCount = ((await db
+    .prepare(`SELECT COUNT(*) AS c FROM profile_sources WHERE user_id = ?`)
+    .get(session.id)) as { c: number }).c;
+  const sampleCount = ((await db
+    .prepare(`SELECT COUNT(*) AS c FROM sample_essays WHERE user_id = ?`)
+    .get(session.id)) as { c: number }).c;
+  const companyCount = ((await db
+    .prepare(`SELECT COUNT(*) AS c FROM companies WHERE user_id = ?`)
+    .get(session.id)) as { c: number }).c;
 
   const statusRows = (await db
-    .prepare(`SELECT status, COUNT(*) AS c FROM applications GROUP BY status`)
-    .all()) as { status: ApplicationStatus; c: number }[];
+    .prepare(`SELECT status, COUNT(*) AS c FROM applications WHERE user_id = ? GROUP BY status`)
+    .all(session.id)) as { status: ApplicationStatus; c: number }[];
   const statusCounts = Object.fromEntries(statusRows.map((r) => [r.status, r.c])) as Partial<
     Record<ApplicationStatus, number>
   >;
@@ -29,10 +46,10 @@ export default async function DashboardPage() {
               (SELECT COUNT(*) FROM essay_questions q WHERE q.application_id = a.id) AS total_questions,
               (SELECT COUNT(*) FROM essay_questions q WHERE q.application_id = a.id AND TRIM(q.content) != '') AS answered_questions
        FROM applications a JOIN companies c ON c.id = a.company_id
-       WHERE a.deadline IS NOT NULL AND a.status NOT IN ('rejected', 'passed_interview')
+       WHERE a.user_id = ? AND a.deadline IS NOT NULL AND a.status NOT IN ('rejected', 'passed_interview')
        ORDER BY a.deadline ASC LIMIT 5`
     )
-    .all()) as {
+    .all(session.id)) as {
     id: string;
     deadline: string;
     job_role: string;
@@ -48,9 +65,10 @@ export default async function DashboardPage() {
        JOIN essay_questions q ON q.id = v.question_id
        JOIN applications a ON a.id = q.application_id
        JOIN companies c ON c.id = a.company_id
+       WHERE a.user_id = ?
        ORDER BY v.created_at DESC LIMIT 6`
     )
-    .all()) as {
+    .all(session.id)) as {
     created_at: string;
     source: string;
     question_text: string;
@@ -164,7 +182,7 @@ export default async function DashboardPage() {
         </Card>
       </div>
 
-      <BackupControls />
+      {session.role === "admin" && <BackupControls />}
     </div>
   );
 }

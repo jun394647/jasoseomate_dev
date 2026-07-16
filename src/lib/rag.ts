@@ -44,6 +44,7 @@ export function chunkText(text: string): string[] {
 }
 
 export async function reindexSource(
+  userId: string,
   sourceType: ChunkSourceType,
   sourceId: string,
   text: string
@@ -58,7 +59,7 @@ export async function reindexSource(
   if (pieces.length === 0) return;
 
   const insert = db.prepare(
-    `INSERT INTO chunks (id, source_type, source_id, content, embedding) VALUES (?, ?, ?, ?, ?)`
+    `INSERT INTO chunks (id, user_id, source_type, source_id, content, embedding) VALUES (?, ?, ?, ?, ?, ?)`
   );
 
   for (const piece of pieces) {
@@ -73,7 +74,7 @@ export async function reindexSource(
       );
       return;
     }
-    await insert.run(randomUUID(), sourceType, sourceId, piece, JSON.stringify(vector));
+    await insert.run(randomUUID(), userId, sourceType, sourceId, piece, JSON.stringify(vector));
   }
 }
 
@@ -94,6 +95,7 @@ export interface RetrievedChunk {
 }
 
 export async function searchChunks(
+  userId: string,
   query: string,
   options: { sourceTypes?: ChunkSourceType[]; topK?: number; excludeSourceId?: string } = {}
 ): Promise<RetrievedChunk[]> {
@@ -104,10 +106,10 @@ export async function searchChunks(
   if (sourceTypes && sourceTypes.length > 0) {
     const placeholders = sourceTypes.map(() => "?").join(",");
     rows = (await db
-      .prepare(`SELECT * FROM chunks WHERE source_type IN (${placeholders})`)
-      .all(...sourceTypes)) as Chunk[];
+      .prepare(`SELECT * FROM chunks WHERE user_id = ? AND source_type IN (${placeholders})`)
+      .all(userId, ...sourceTypes)) as Chunk[];
   } else {
-    rows = (await db.prepare(`SELECT * FROM chunks`).all()) as Chunk[];
+    rows = (await db.prepare(`SELECT * FROM chunks WHERE user_id = ?`).all(userId)) as Chunk[];
   }
 
   if (excludeSourceId) {

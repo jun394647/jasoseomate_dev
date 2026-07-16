@@ -79,13 +79,6 @@ async function notionFetch(path: string, method: string, body?: unknown): Promis
   return res.json();
 }
 
-export interface NotionPageSummary {
-  id: string;
-  title: string;
-  url: string;
-  last_edited: string;
-}
-
 interface NotionSearchResult {
   id: string;
   url: string;
@@ -93,31 +86,6 @@ interface NotionSearchResult {
   last_edited_time: string;
   parent: { type: string; page_id?: string };
   properties?: { title?: { title?: { plain_text: string }[] } };
-}
-
-// Integration이 접근 가능한 노션 페이지 목록 (백업 페이지 하위의 내보낸 자소서는 제외)
-export async function listNotionPages(): Promise<NotionPageSummary[]> {
-  if (!isNotionConfigured()) {
-    throw new Error("노션 연동이 설정되지 않았습니다. .env.local의 NOTION_API_KEY를 확인하세요.");
-  }
-  const backupParent = (process.env.NOTION_PARENT_PAGE_ID ?? "").replace(/-/g, "");
-
-  const data = (await notionFetch("/search", "POST", {
-    filter: { value: "page", property: "object" },
-    sort: { direction: "descending", timestamp: "last_edited_time" },
-    page_size: 50,
-  })) as { results: NotionSearchResult[] };
-
-  return data.results
-    .filter((r) => !r.archived)
-    .filter((r) => (r.parent.page_id ?? "").replace(/-/g, "") !== backupParent)
-    .filter((r) => r.id.replace(/-/g, "") !== backupParent)
-    .map((r) => ({
-      id: r.id,
-      title: r.properties?.title?.title?.map((t) => t.plain_text).join("") || "(제목 없음)",
-      url: r.url,
-      last_edited: r.last_edited_time,
-    }));
 }
 
 interface NotionBlockResult {

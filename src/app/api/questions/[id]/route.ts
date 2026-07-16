@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function PUT(req: NextRequest, ctx: RouteContext<"/api/questions/[id]">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const body = await req.json();
   const { content, question_text, max_length, memo, source_ids, news } = body as {
@@ -15,9 +19,13 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/questions/[i
   };
 
   const db = await getDb();
-  const existing = (await db.prepare(`SELECT * FROM essay_questions WHERE id = ?`).get(id)) as
-    | { content: string }
-    | undefined;
+  const existing = (await db
+    .prepare(
+      `SELECT eq.* FROM essay_questions eq
+       JOIN applications a ON a.id = eq.application_id
+       WHERE eq.id = ? AND a.user_id = ?`
+    )
+    .get(id, session.id)) as { content: string } | undefined;
   if (!existing) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
@@ -66,8 +74,16 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/questions/[i
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/questions/[id]">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const db = await getDb();
-  await db.prepare(`DELETE FROM essay_questions WHERE id = ?`).run(id);
+  await db
+    .prepare(
+      `DELETE FROM essay_questions WHERE id = ? AND application_id IN
+       (SELECT id FROM applications WHERE user_id = ?)`
+    )
+    .run(id, session.id);
   return NextResponse.json({ ok: true });
 }

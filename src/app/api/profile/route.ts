@@ -2,22 +2,24 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource } from "@/lib/rag";
+import { sessionOrResponse } from "@/lib/session";
 import type { ProfileSource } from "@/lib/types";
-import { guardNotion } from "@/lib/notionAuth";
 
-export async function GET(req: NextRequest) {
-  const locked = guardNotion(req);
-  if (locked) return locked;
+export async function GET() {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const db = await getDb();
   const rows = (await db
-    .prepare(`SELECT * FROM profile_sources ORDER BY updated_at DESC`)
-    .all()) as ProfileSource[];
+    .prepare(`SELECT * FROM profile_sources WHERE user_id = ? ORDER BY updated_at DESC`)
+    .all(session.id)) as ProfileSource[];
   return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {
-  const locked = guardNotion(req);
-  if (locked) return locked;
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const body = await req.json();
   const { title, category, content } = body as {
     title?: string;
@@ -32,10 +34,10 @@ export async function POST(req: NextRequest) {
   const db = await getDb();
   const id = randomUUID();
   await db.prepare(
-    `INSERT INTO profile_sources (id, title, category, content) VALUES (?, ?, ?, ?)`
-  ).run(id, title.trim(), category || "experience", content.trim());
+    `INSERT INTO profile_sources (id, user_id, title, category, content) VALUES (?, ?, ?, ?, ?)`
+  ).run(id, session.id, title.trim(), category || "experience", content.trim());
 
-  await reindexSource("profile", id, content.trim());
+  await reindexSource(session.id, "profile", id, content.trim());
 
   const row = await db.prepare(`SELECT * FROM profile_sources WHERE id = ?`).get(id);
   return NextResponse.json(row, { status: 201 });

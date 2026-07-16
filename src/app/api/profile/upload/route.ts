@@ -3,11 +3,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource } from "@/lib/rag";
 import { extractTextFromFile } from "@/lib/parse";
-import { guardNotion } from "@/lib/notionAuth";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
-  const locked = guardNotion(req);
-  if (locked) return locked;
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const form = await req.formData();
   const file = form.get("file");
   const title = (form.get("title") as string) || "";
@@ -35,10 +36,10 @@ export async function POST(req: NextRequest) {
   const db = await getDb();
   const id = randomUUID();
   await db.prepare(
-    `INSERT INTO profile_sources (id, title, category, content) VALUES (?, ?, ?, ?)`
-  ).run(id, title.trim() || file.name, category, content);
+    `INSERT INTO profile_sources (id, user_id, title, category, content) VALUES (?, ?, ?, ?, ?)`
+  ).run(id, session.id, title.trim() || file.name, category, content);
 
-  await reindexSource("profile", id, content);
+  await reindexSource(session.id, "profile", id, content);
 
   const row = await db.prepare(`SELECT * FROM profile_sources WHERE id = ?`).get(id);
   return NextResponse.json(row, { status: 201 });

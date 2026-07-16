@@ -2,15 +2,24 @@ import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource } from "@/lib/rag";
+import { sessionOrResponse } from "@/lib/session";
 import type { Company } from "@/lib/types";
 
 export async function GET() {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const db = await getDb();
-  const rows = (await db.prepare(`SELECT * FROM companies ORDER BY updated_at DESC`).all()) as Company[];
+  const rows = (await db
+    .prepare(`SELECT * FROM companies WHERE user_id = ? ORDER BY updated_at DESC`)
+    .all(session.id)) as Company[];
   return NextResponse.json(rows);
 }
 
 export async function POST(req: NextRequest) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const body = await req.json();
   const { name, industry, analysis, talent_profile, notes, news } = body as {
     name?: string;
@@ -30,9 +39,10 @@ export async function POST(req: NextRequest) {
   const db = await getDb();
   const id = randomUUID();
   await db.prepare(
-    `INSERT INTO companies (id, name, industry, analysis, talent_profile, notes, news) VALUES (?, ?, ?, ?, ?, ?, ?)`
+    `INSERT INTO companies (id, user_id, name, industry, analysis, talent_profile, notes, news) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
   ).run(
     id,
+    session.id,
     name.trim(),
     industry?.trim() || null,
     analysis?.trim() || null,
@@ -42,7 +52,7 @@ export async function POST(req: NextRequest) {
   );
 
   const ragText = [analysis, talent_profile, ...newsList].filter(Boolean).join("\n\n");
-  if (ragText.trim()) await reindexSource("company", id, ragText.trim());
+  if (ragText.trim()) await reindexSource(session.id, "company", id, ragText.trim());
 
   const row = await db.prepare(`SELECT * FROM companies WHERE id = ?`).get(id);
   return NextResponse.json(row, { status: 201 });

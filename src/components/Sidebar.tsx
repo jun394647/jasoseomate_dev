@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef } from "react";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import {
   LayoutDashboard,
   UserRound,
@@ -11,8 +12,10 @@ import {
   FolderKanban,
   Search,
   Lightbulb,
+  ShieldCheck,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
+import SignOutButton from "./SignOutButton";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "대시보드", icon: LayoutDashboard },
@@ -26,6 +29,8 @@ const NAV_ITEMS = [
 
 export default function Sidebar() {
   const pathname = usePathname();
+  const { data: session, status } = useSession();
+  const role = (session?.user as { role?: string } | undefined)?.role;
 
   return (
     <aside className="w-60 shrink-0 border-r border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)] bg-[#f9f9f7] dark:bg-[#0d0d0d] flex flex-col">
@@ -34,25 +39,57 @@ export default function Sidebar() {
         <p className="text-xs text-[#898781] mt-0.5">나만의 자기소개서 작성 도우미</p>
       </div>
       <nav className="flex-1 px-3 space-y-1">
-        {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-          const active = pathname === href || pathname.startsWith(href + "/");
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                active
-                  ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
-                  : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
-              }`}
-            >
-              <Icon size={17} strokeWidth={2} />
-              {label}
-            </Link>
-          );
-        })}
+        {status !== "authenticated" ? (
+          <Link
+            href="/login"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#2a78d6] dark:text-[#3987e5] font-medium hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            로그인
+          </Link>
+        ) : (
+          <>
+            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+              const active = pathname === href || pathname.startsWith(href + "/");
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    active
+                      ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
+                      : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
+                  }`}
+                >
+                  <Icon size={17} strokeWidth={2} />
+                  {label}
+                </Link>
+              );
+            })}
+            {role === "admin" && (
+              <Link
+                href="/admin"
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  pathname.startsWith("/admin")
+                    ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
+                    : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
+                }`}
+              >
+                <ShieldCheck size={17} strokeWidth={2} />
+                관리자
+              </Link>
+            )}
+          </>
+        )}
       </nav>
       <div className="px-3 py-3 border-t border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)]">
+        {status === "authenticated" && session?.user && (
+          <div className="flex items-center justify-between gap-2 px-1 pb-2 mb-2 border-b border-[rgba(11,11,11,0.08)] dark:border-[rgba(255,255,255,0.08)]">
+            <span className="text-xs text-[#52514e] dark:text-[#c3c2b7] truncate">
+              {session.user.email}
+            </span>
+            <SignOutButton />
+          </div>
+        )}
         <ThemeToggle />
         <SecretFooter />
       </div>

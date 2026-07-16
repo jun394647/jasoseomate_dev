@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource, deleteSourceChunks } from "@/lib/rag";
-import { guardNotion } from "@/lib/notionAuth";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function PUT(req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
-  const locked = guardNotion(req);
-  if (locked) return locked;
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const body = await req.json();
   const { title, category, content } = body as {
@@ -21,26 +22,29 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/profile/[id]
   const db = await getDb();
   const result = await db
     .prepare(
-      `UPDATE profile_sources SET title = ?, category = ?, content = ?, updated_at = datetime('now') WHERE id = ?`
+      `UPDATE profile_sources SET title = ?, category = ?, content = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?`
     )
-    .run(title.trim(), category || "experience", content.trim(), id);
+    .run(title.trim(), category || "experience", content.trim(), id, session.id);
 
   if (result.changes === 0) {
     return NextResponse.json({ error: "not found" }, { status: 404 });
   }
 
-  await reindexSource("profile", id, content.trim());
+  await reindexSource(session.id, "profile", id, content.trim());
 
   const row = await db.prepare(`SELECT * FROM profile_sources WHERE id = ?`).get(id);
   return NextResponse.json(row);
 }
 
-export async function DELETE(req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
-  const locked = guardNotion(req);
-  if (locked) return locked;
+export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/profile/[id]">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const db = await getDb();
-  await db.prepare(`DELETE FROM profile_sources WHERE id = ?`).run(id);
+  await db
+    .prepare(`DELETE FROM profile_sources WHERE id = ? AND user_id = ?`)
+    .run(id, session.id);
   await deleteSourceChunks("profile", id);
   return NextResponse.json({ ok: true });
 }

@@ -2,9 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { fetchScrapContent } from "@/lib/notion";
 import { guardNotion } from "@/lib/notionAuth";
+import { sessionOrResponse } from "@/lib/session";
 
 // 노션 공고 스크랩(page_id) 또는 직접 입력(posting)을 지원서에 연결
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/applications/[id]/posting">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const body = await req.json();
   const { page_id, posting, posting_url } = body as {
@@ -19,7 +23,9 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/application
   }
 
   const db = await getDb();
-  const app = await db.prepare(`SELECT id FROM applications WHERE id = ?`).get(id);
+  const app = await db
+    .prepare(`SELECT id FROM applications WHERE id = ? AND user_id = ?`)
+    .get(id, session.id);
   if (!app) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   try {

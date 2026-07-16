@@ -1,4 +1,5 @@
 import { getDb } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import { Card, PageHeader, EmptyState } from "@/components/ui";
 import { PROFILE_CATEGORY_LABELS, parseJsonStringArray } from "@/lib/types";
 import type { ProfileCategory } from "@/lib/types";
@@ -6,15 +7,29 @@ import OutcomeAnalysis from "./OutcomeAnalysis";
 import QuestionBank from "./QuestionBank";
 
 export default async function InsightsPage() {
+  const session = await getSession();
+  if (!session) {
+    return (
+      <div>
+        <PageHeader title="인사이트" />
+        <EmptyState>로그인이 필요합니다.</EmptyState>
+      </div>
+    );
+  }
+
   const db = await getDb();
 
   // 경험 활용 맵: 문항의 source_ids를 집계
   const sources = (await db
-    .prepare(`SELECT id, title, category FROM profile_sources ORDER BY category, updated_at DESC`)
-    .all()) as { id: string; title: string; category: ProfileCategory }[];
+    .prepare(`SELECT id, title, category FROM profile_sources WHERE user_id = ? ORDER BY category, updated_at DESC`)
+    .all(session.id)) as { id: string; title: string; category: ProfileCategory }[];
   const questionSourceRows = (await db
-    .prepare(`SELECT source_ids FROM essay_questions WHERE source_ids != '[]'`)
-    .all()) as { source_ids: string }[];
+    .prepare(
+      `SELECT q.source_ids FROM essay_questions q
+       JOIN applications a ON a.id = q.application_id
+       WHERE a.user_id = ? AND q.source_ids != '[]'`
+    )
+    .all(session.id)) as { source_ids: string }[];
 
   const usage = new Map<string, number>();
   for (const row of questionSourceRows) {
@@ -36,9 +51,10 @@ export default async function InsightsPage() {
        FROM essay_questions q
        JOIN applications a ON a.id = q.application_id
        JOIN companies c ON c.id = a.company_id
+       WHERE a.user_id = ?
        ORDER BY q.created_at DESC`
     )
-    .all()) as {
+    .all(session.id)) as {
     id: string;
     question_text: string;
     max_length: number | null;

@@ -37,6 +37,7 @@ function formatChunkList(label: string, chunks: { content: string; meta?: string
 }
 
 export async function generateEssayDraft(
+  userId: string,
   questionId: string,
   conceptHint?: string
 ): Promise<{
@@ -50,8 +51,8 @@ export async function generateEssayDraft(
   if (!question) throw new Error("문항을 찾을 수 없습니다.");
 
   const application = (await db
-    .prepare(`SELECT * FROM applications WHERE id = ?`)
-    .get(question.application_id)) as Application | undefined;
+    .prepare(`SELECT * FROM applications WHERE id = ? AND user_id = ?`)
+    .get(question.application_id, userId)) as Application | undefined;
   if (!application) throw new Error("지원 정보를 찾을 수 없습니다.");
 
   const company = (await db
@@ -68,16 +69,16 @@ export async function generateEssayDraft(
   if (selectedIds.length > 0) {
     const placeholders = selectedIds.map(() => "?").join(",");
     selectedSources = (await db
-      .prepare(`SELECT * FROM profile_sources WHERE id IN (${placeholders})`)
-      .all(...selectedIds)) as ProfileSource[];
+      .prepare(`SELECT * FROM profile_sources WHERE user_id = ? AND id IN (${placeholders})`)
+      .all(userId, ...selectedIds)) as ProfileSource[];
   }
 
   const [profileHits, sampleHits, companyHits] = await Promise.all([
     selectedSources.length > 0
       ? Promise.resolve([])
-      : searchChunks(query, { sourceTypes: ["profile"], topK: 6 }),
-    searchChunks(query, { sourceTypes: ["sample_essay"], topK: 3 }),
-    searchChunks(query, { sourceTypes: ["company", "company_archive"], topK: 4 }),
+      : searchChunks(userId, query, { sourceTypes: ["profile"], topK: 6 }),
+    searchChunks(userId, query, { sourceTypes: ["sample_essay"], topK: 3 }),
+    searchChunks(userId, query, { sourceTypes: ["company", "company_archive"], topK: 4 }),
   ]);
 
   const sampleMeta = new Map<string, string>();

@@ -16,14 +16,14 @@ const SYSTEM_PROMPT = `당신은 면접 스피치 코치입니다. 지원자의 
 
 출력: 자기소개 본문만. 마크다운·이모지·부연 설명 금지.`;
 
-export async function generateSelfIntro(applicationId: string): Promise<{
+export async function generateSelfIntro(userId: string, applicationId: string): Promise<{
   text: string;
   costUsd: number | null;
 }> {
   const db = await getDb();
   const application = (await db
-    .prepare(`SELECT * FROM applications WHERE id = ?`)
-    .get(applicationId)) as Application | undefined;
+    .prepare(`SELECT * FROM applications WHERE id = ? AND user_id = ?`)
+    .get(applicationId, userId)) as Application | undefined;
   if (!application) throw new Error("지원 정보를 찾을 수 없습니다.");
   const company = (await db
     .prepare(`SELECT * FROM companies WHERE id = ?`)
@@ -31,7 +31,7 @@ export async function generateSelfIntro(applicationId: string): Promise<{
   if (!company) throw new Error("기업 정보를 찾을 수 없습니다.");
 
   const query = [company.name, company.industry, application.job_role, "강점 성과 경험"].filter(Boolean).join(" ");
-  const hits = await searchChunks(query, { sourceTypes: ["profile"], topK: 8 });
+  const hits = await searchChunks(userId, query, { sourceTypes: ["profile"], topK: 8 });
   if (hits.length === 0) throw new Error("등록된 경험이 없습니다. 내 정보를 먼저 채우세요.");
 
   const prompt = `[지원 정보]

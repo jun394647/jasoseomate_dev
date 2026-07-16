@@ -3,20 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { generateEssayDraft } from "@/lib/generate";
 import { checkPlagiarism } from "@/lib/similarity";
+import { sessionOrResponse } from "@/lib/session";
 
 export const maxDuration = 300;
 
 export async function POST(_req: NextRequest, ctx: RouteContext<"/api/questions/[id]/generate">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const db = await getDb();
 
-  const question = await db.prepare(`SELECT id FROM essay_questions WHERE id = ?`).get(id);
-  if (!question) {
-    return NextResponse.json({ error: "not found" }, { status: 404 });
-  }
-
   try {
-    const { text, costUsd } = await generateEssayDraft(id);
+    const { text, costUsd } = await generateEssayDraft(session.id, id);
 
     await db.prepare(
       `UPDATE essay_questions SET content = ?, updated_at = datetime('now') WHERE id = ?`

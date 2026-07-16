@@ -27,7 +27,7 @@ interface Row {
   content: string;
 }
 
-export async function analyzeOutcomes(): Promise<{ report: string; costUsd: number | null }> {
+export async function analyzeOutcomes(userId: string): Promise<{ report: string; costUsd: number | null }> {
   const db = await getDb();
   const rows = (await db
     .prepare(
@@ -35,9 +35,9 @@ export async function analyzeOutcomes(): Promise<{ report: string; costUsd: numb
        FROM essay_questions q
        JOIN applications a ON a.id = q.application_id
        JOIN companies c ON c.id = a.company_id
-       WHERE TRIM(q.content) != '' AND a.status IN ('passed_document', 'passed_interview', 'rejected')`
+       WHERE a.user_id = ? AND TRIM(q.content) != '' AND a.status IN ('passed_document', 'passed_interview', 'rejected')`
     )
-    .all()) as Row[];
+    .all(userId)) as Row[];
 
   const passed = rows.filter((r) => r.status !== "rejected");
   const rejected = rows.filter((r) => r.status === "rejected");

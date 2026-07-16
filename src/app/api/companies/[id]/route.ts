@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
 import { reindexSource, deleteSourceChunks } from "@/lib/rag";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function PUT(req: NextRequest, ctx: RouteContext<"/api/companies/[id]">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const body = await req.json();
   const { name, industry, analysis, talent_profile, notes, news } = body as {
@@ -24,7 +28,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/companies/[i
   const res = await db
     .prepare(
       `UPDATE companies SET name = ?, industry = ?, analysis = ?, talent_profile = ?, notes = ?, news = ?, updated_at = datetime('now')
-       WHERE id = ?`
+       WHERE id = ? AND user_id = ?`
     )
     .run(
       name.trim(),
@@ -33,7 +37,8 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/companies/[i
       talent_profile?.trim() || null,
       notes?.trim() || null,
       JSON.stringify(newsList),
-      id
+      id,
+      session.id
     );
 
   if (res.changes === 0) {
@@ -42,7 +47,7 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/companies/[i
 
   const ragText = [analysis, talent_profile, ...newsList].filter(Boolean).join("\n\n");
   if (ragText.trim()) {
-    await reindexSource("company", id, ragText.trim());
+    await reindexSource(session.id, "company", id, ragText.trim());
   } else {
     await deleteSourceChunks("company", id);
   }
@@ -52,8 +57,16 @@ export async function PUT(req: NextRequest, ctx: RouteContext<"/api/companies/[i
 }
 
 export async function DELETE(_req: NextRequest, ctx: RouteContext<"/api/companies/[id]">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id } = await ctx.params;
   const db = await getDb();
+  const owned = await db
+    .prepare(`SELECT id FROM companies WHERE id = ? AND user_id = ?`)
+    .get(id, session.id);
+  if (!owned) return NextResponse.json({ error: "not found" }, { status: 404 });
+
   const archiveIds = (await db
     .prepare(`SELECT id FROM company_archives WHERE company_id = ?`)
     .all(id)) as { id: string }[];

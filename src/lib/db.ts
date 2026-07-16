@@ -5,6 +5,7 @@
 import { createClient, type Client, type InValue } from "@libsql/client";
 import path from "node:path";
 import fs from "node:fs";
+import { randomUUID } from "node:crypto";
 
 export interface Statement {
   get(...args: InValue[]): Promise<unknown>;
@@ -139,8 +140,33 @@ async function backupDaily(db: DbAdapter, url: string) {
 
 async function migrate(db: DbAdapter) {
   await db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      google_id TEXT UNIQUE,
+      email TEXT NOT NULL UNIQUE,
+      name TEXT,
+      image TEXT,
+      role TEXT NOT NULL DEFAULT 'member',
+      token_balance INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_login_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+    CREATE TABLE IF NOT EXISTS token_transactions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      delta INTEGER NOT NULL,
+      reason TEXT NOT NULL,
+      balance_after INTEGER NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_token_tx_user ON token_transactions(user_id);
+
     CREATE TABLE IF NOT EXISTS profile_sources (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       title TEXT NOT NULL,
       category TEXT NOT NULL DEFAULT 'experience',
       content TEXT NOT NULL,
@@ -150,6 +176,7 @@ async function migrate(db: DbAdapter) {
 
     CREATE TABLE IF NOT EXISTS sample_essays (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       company_name TEXT,
       industry TEXT,
       job_role TEXT,
@@ -163,6 +190,7 @@ async function migrate(db: DbAdapter) {
 
     CREATE TABLE IF NOT EXISTS companies (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       name TEXT NOT NULL,
       industry TEXT,
       analysis TEXT,
@@ -185,6 +213,7 @@ async function migrate(db: DbAdapter) {
 
     CREATE TABLE IF NOT EXISTS applications (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       company_id TEXT NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
       job_role TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'preparing',
@@ -238,6 +267,7 @@ async function migrate(db: DbAdapter) {
 
     CREATE TABLE IF NOT EXISTS chunks (
       id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL DEFAULT '',
       source_type TEXT NOT NULL,
       source_id TEXT NOT NULL,
       content TEXT NOT NULL,
@@ -295,6 +325,75 @@ async function migrate(db: DbAdapter) {
   if (!companyColumns.some((c) => c.name === "ai_report")) {
     await db.exec(`ALTER TABLE companies ADD COLUMN ai_report TEXT NOT NULL DEFAULT ''`);
   }
+  if (!companyColumns.some((c) => c.name === "user_id")) {
+    await db.exec(`ALTER TABLE companies ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+
+  if (!(await hasColumn(db, "profile_sources", "user_id"))) {
+    await db.exec(`ALTER TABLE profile_sources ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!(await hasColumn(db, "sample_essays", "user_id"))) {
+    await db.exec(`ALTER TABLE sample_essays ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!applicationColumns.some((c) => c.name === "user_id")) {
+    await db.exec(`ALTER TABLE applications ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+  if (!(await hasColumn(db, "chunks", "user_id"))) {
+    await db.exec(`ALTER TABLE chunks ADD COLUMN user_id TEXT NOT NULL DEFAULT ''`);
+  }
+
+  // user_id 컬럼이 보장된 뒤에만 인덱스를 만들 수 있다 (레거시 테이블은 위 ALTER 이후에야 컬럼이 생김)
+  await db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_profile_sources_user ON profile_sources(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sample_essays_user ON sample_essays(user_id);
+    CREATE INDEX IF NOT EXISTS idx_companies_user ON companies(user_id);
+    CREATE INDEX IF NOT EXISTS idx_applications_user ON applications(user_id);
+    CREATE INDEX IF NOT EXISTS idx_chunks_user ON chunks(user_id);
+  `);
+
+  await backfillOwnership(db);
+}
+
+async function hasColumn(db: DbAdapter, table: string, column: string): Promise<boolean> {
+  const cols = (await db.prepare(`SELECT name FROM pragma_table_info('${table}')`).all()) as {
+    name: string;
+  }[];
+  return cols.some((c) => c.name === column);
+}
+
+// 1회성: 기존(테넌시 도입 이전) 데이터를 ADMIN_EMAIL 계정에 귀속시킨다.
+// 이미 소유자가 채워진 행은 건드리지 않으므로 여러 번 실행돼도 안전하다.
+async function backfillOwnership(db: DbAdapter) {
+  const adminEmail = process.env.ADMIN_EMAIL?.trim();
+  if (!adminEmail) {
+    console.error(
+      "ADMIN_EMAIL이 설정되지 않아 기존 데이터 소유권 백필을 건너뜁니다. user_id가 빈 데이터가 남아있을 수 있습니다."
+    );
+    return;
+  }
+
+  const existing = (await db.prepare(`SELECT id FROM users WHERE email = ?`).get(adminEmail)) as
+    | { id: string }
+    | undefined;
+
+  let adminId = existing?.id;
+  if (!adminId) {
+    adminId = randomUUID();
+    await db
+      .prepare(`INSERT INTO users (id, email, role, token_balance) VALUES (?, ?, 'admin', 0)`)
+      .run(adminId, adminEmail);
+  }
+
+  await db.prepare(`UPDATE profile_sources SET user_id = ? WHERE user_id = ''`).run(adminId);
+  await db.prepare(`UPDATE sample_essays SET user_id = ? WHERE user_id = ''`).run(adminId);
+  await db.prepare(`UPDATE companies SET user_id = ? WHERE user_id = ''`).run(adminId);
+  await db.prepare(`UPDATE chunks SET user_id = ? WHERE user_id = ''`).run(adminId);
+  await db
+    .prepare(
+      `UPDATE applications SET user_id = (SELECT c.user_id FROM companies c WHERE c.id = applications.company_id)
+       WHERE user_id = ''`
+    )
+    .run();
 }
 
 declare global {

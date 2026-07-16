@@ -23,21 +23,26 @@ const STYLE_SYSTEM = `당신은 자기소개서 문체 교정 전문가입니다
 
 출력: 재작성된 답안 본문만. 마크다운·이모지·부연 설명 금지.`;
 
-async function getQuestion(questionId: string): Promise<EssayQuestion> {
+async function getQuestion(userId: string, questionId: string): Promise<EssayQuestion> {
   const db = await getDb();
   const q = (await db
-    .prepare(`SELECT * FROM essay_questions WHERE id = ?`)
-    .get(questionId)) as EssayQuestion | undefined;
+    .prepare(
+      `SELECT eq.* FROM essay_questions eq
+       JOIN applications a ON a.id = eq.application_id
+       WHERE eq.id = ? AND a.user_id = ?`
+    )
+    .get(questionId, userId)) as EssayQuestion | undefined;
   if (!q) throw new Error("문항을 찾을 수 없습니다.");
   if (!q.content.trim()) throw new Error("답안이 비어 있습니다. 먼저 작성하거나 생성하세요.");
   return q;
 }
 
 export async function shortenEssay(
+  userId: string,
   questionId: string,
   targetLength: number
 ): Promise<{ text: string; costUsd: number | null }> {
-  const q = await getQuestion(questionId);
+  const q = await getQuestion(userId, questionId);
   const prompt = `[자기소개서 문항]
 ${q.question_text}
 
@@ -52,13 +57,16 @@ ${q.content}
 }
 
 export async function restyleEssay(
+  userId: string,
   questionId: string
 ): Promise<{ text: string; costUsd: number | null }> {
-  const q = await getQuestion(questionId);
+  const q = await getQuestion(userId, questionId);
   const db = await getDb();
   const samples = (await db
-    .prepare(`SELECT * FROM profile_sources WHERE category = 'etc' ORDER BY updated_at DESC LIMIT 3`)
-    .all()) as ProfileSource[];
+    .prepare(
+      `SELECT * FROM profile_sources WHERE user_id = ? AND category = 'etc' ORDER BY updated_at DESC LIMIT 3`
+    )
+    .all(userId)) as ProfileSource[];
   if (samples.length === 0) {
     throw new Error(
       "문체 샘플이 없습니다. 내 정보의 '기타' 카테고리에 직접 쓴 글(자소서, 블로그 글 등)을 등록하세요."

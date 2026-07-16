@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Search } from "lucide-react";
 import { getDb } from "@/lib/db";
+import { getSession } from "@/lib/session";
 import { Card, PageHeader, EmptyState } from "@/components/ui";
 import { PROFILE_CATEGORY_LABELS } from "@/lib/types";
 import type { ProfileCategory } from "@/lib/types";
@@ -21,6 +22,16 @@ function makeSnippet(text: string, q: string, radius = 60): string {
 }
 
 export default async function SearchPage({ searchParams }: PageProps<"/search">) {
+  const session = await getSession();
+  if (!session) {
+    return (
+      <div>
+        <PageHeader title="검색" />
+        <EmptyState>로그인이 필요합니다.</EmptyState>
+      </div>
+    );
+  }
+
   const { q: rawQ } = await searchParams;
   const q = (Array.isArray(rawQ) ? rawQ[0] : rawQ)?.trim() ?? "";
 
@@ -29,13 +40,14 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
   if (q) {
     const db = await getDb();
     const like = `%${q}%`;
+    const userId = session.id;
 
     const profiles = (await db
       .prepare(
         `SELECT id, title, category, content FROM profile_sources
-         WHERE title LIKE ? OR content LIKE ? ORDER BY updated_at DESC LIMIT 10`
+         WHERE user_id = ? AND (title LIKE ? OR content LIKE ?) ORDER BY updated_at DESC LIMIT 10`
       )
-      .all(like, like)) as { id: string; title: string; category: ProfileCategory; content: string }[];
+      .all(userId, like, like)) as { id: string; title: string; category: ProfileCategory; content: string }[];
     for (const p of profiles) {
       results.push({
         href: "/profile",
@@ -48,9 +60,9 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
     const samples = (await db
       .prepare(
         `SELECT id, company_name, question, content FROM sample_essays
-         WHERE question LIKE ? OR content LIKE ? OR company_name LIKE ? ORDER BY updated_at DESC LIMIT 10`
+         WHERE user_id = ? AND (question LIKE ? OR content LIKE ? OR company_name LIKE ?) ORDER BY updated_at DESC LIMIT 10`
       )
-      .all(like, like, like)) as { id: string; company_name: string | null; question: string; content: string }[];
+      .all(userId, like, like, like)) as { id: string; company_name: string | null; question: string; content: string }[];
     for (const s of samples) {
       results.push({
         href: "/samples",
@@ -64,10 +76,10 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       .prepare(
         `SELECT id, name, industry, COALESCE(analysis, '') || ' ' || COALESCE(talent_profile, '') || ' ' || ai_report AS body
          FROM companies
-         WHERE name LIKE ? OR analysis LIKE ? OR talent_profile LIKE ? OR ai_report LIKE ? OR news LIKE ?
+         WHERE user_id = ? AND (name LIKE ? OR analysis LIKE ? OR talent_profile LIKE ? OR ai_report LIKE ? OR news LIKE ?)
          ORDER BY updated_at DESC LIMIT 10`
       )
-      .all(like, like, like, like, like)) as { id: string; name: string; industry: string | null; body: string }[];
+      .all(userId, like, like, like, like, like)) as { id: string; name: string; industry: string | null; body: string }[];
     for (const c of companies) {
       results.push({
         href: "/companies",
@@ -81,9 +93,9 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
       .prepare(
         `SELECT ar.id, ar.title, ar.content, c.name AS company_name
          FROM company_archives ar JOIN companies c ON c.id = ar.company_id
-         WHERE ar.title LIKE ? OR ar.content LIKE ? ORDER BY ar.created_at DESC LIMIT 10`
+         WHERE c.user_id = ? AND (ar.title LIKE ? OR ar.content LIKE ?) ORDER BY ar.created_at DESC LIMIT 10`
       )
-      .all(like, like)) as { id: string; title: string; content: string; company_name: string }[];
+      .all(userId, like, like)) as { id: string; title: string; content: string; company_name: string }[];
     for (const a of archives) {
       results.push({
         href: "/companies",
@@ -99,9 +111,9 @@ export default async function SearchPage({ searchParams }: PageProps<"/search">)
          FROM essay_questions q
          JOIN applications a ON a.id = q.application_id
          JOIN companies c ON c.id = a.company_id
-         WHERE q.question_text LIKE ? OR q.content LIKE ? OR q.memo LIKE ? ORDER BY q.updated_at DESC LIMIT 10`
+         WHERE a.user_id = ? AND (q.question_text LIKE ? OR q.content LIKE ? OR q.memo LIKE ?) ORDER BY q.updated_at DESC LIMIT 10`
       )
-      .all(like, like, like)) as {
+      .all(userId, like, like, like)) as {
       id: string;
       question_text: string;
       content: string;

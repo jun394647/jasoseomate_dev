@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { fetchPageText } from "@/lib/webpage";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function POST(req: NextRequest) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const body = await req.json();
   const { url } = body as { url?: string };
   if (!url?.trim()) {

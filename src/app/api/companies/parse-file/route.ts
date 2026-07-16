@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractTextFromFile } from "@/lib/parse";
+import { sessionOrResponse } from "@/lib/session";
 
 // Parses an uploaded company-info file and returns its text so the client
 // can fill the analysis field before saving. No DB write here.
 export async function POST(req: NextRequest) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const form = await req.formData();
   const file = form.get("file");
 

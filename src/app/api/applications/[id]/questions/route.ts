@@ -1,8 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
+import { sessionOrResponse } from "@/lib/session";
 
 export async function POST(req: NextRequest, ctx: RouteContext<"/api/applications/[id]/questions">) {
+  const session = await sessionOrResponse();
+  if (session instanceof NextResponse) return session;
+
   const { id: applicationId } = await ctx.params;
   const body = await req.json();
   const { question_text, max_length, source_ids, news } = body as {
@@ -17,6 +21,11 @@ export async function POST(req: NextRequest, ctx: RouteContext<"/api/application
   }
 
   const db = await getDb();
+  const application = await db
+    .prepare(`SELECT id FROM applications WHERE id = ? AND user_id = ?`)
+    .get(applicationId, session.id);
+  if (!application) return NextResponse.json({ error: "not found" }, { status: 404 });
+
   const { maxOrder } = (await db
     .prepare(
       `SELECT COALESCE(MAX(order_index), -1) AS maxOrder FROM essay_questions WHERE application_id = ?`
