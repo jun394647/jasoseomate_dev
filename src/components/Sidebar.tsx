@@ -13,6 +13,7 @@ import {
   Search,
   Lightbulb,
   ShieldCheck,
+  Briefcase,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "./SignOutButton";
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/samples", label: "우수 자소서", icon: BookMarked },
   { href: "/companies", label: "기업 분석", icon: Building2 },
   { href: "/applications", label: "지원 관리", icon: FolderKanban },
+  { href: "/jobs", label: "채용공고", icon: Briefcase },
   { href: "/insights", label: "인사이트", icon: Lightbulb },
   { href: "/search", label: "검색", icon: Search },
 ];
