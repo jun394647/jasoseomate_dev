@@ -113,7 +113,7 @@ export default function ChargeForm({
       <Card className="p-5 mb-6">
         <p className="text-sm font-medium text-[#0b0b0b] dark:text-white mb-3">충전 신청</p>
         <form onSubmit={submit} className="space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               type="number"
               min={1}

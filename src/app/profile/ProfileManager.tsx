@@ -150,7 +150,7 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
       {mode === "text" && (
         <Card className="p-5 mb-6">
           <form onSubmit={submitText} className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input
                 placeholder="제목 (예: 학생회 활동 경험)"
                 value={title}
@@ -223,7 +223,7 @@ export default function ProfileManager({ initialSources }: { initialSources: Pro
       {mode === "upload" && (
         <Card className="p-5 mb-6">
           <form onSubmit={submitUpload} className="space-y-3">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <Input
                 placeholder="제목 (비워두면 파일명 사용)"
                 value={title}

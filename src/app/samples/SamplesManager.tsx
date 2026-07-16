@@ -101,7 +101,7 @@ export default function SamplesManager({ initialEssays }: { initialEssays: Sampl
       {open && (
         <Card className="p-5 mb-6">
           <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
               <Input
                 placeholder="기업명"
                 value={form.company_name}

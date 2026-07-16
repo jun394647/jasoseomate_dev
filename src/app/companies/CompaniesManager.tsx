@@ -139,7 +139,7 @@ export default function CompaniesManager({ initialCompanies }: { initialCompanie
       {open && (
         <Card className="p-5 mb-6">
           <form onSubmit={submit} className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input placeholder="기업명" value={form.name} onChange={(e) => set("name", e.target.value)} required />
               <Input
                 placeholder="산업군 (예: IT/플랫폼, 제조, 금융)"
@@ -525,7 +525,7 @@ function CompanyCard({
 
             {showArchiveForm && (
               <form onSubmit={addArchive} className="space-y-2 mb-3 rounded-lg border border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)] p-3">
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <Input
                     placeholder="제목 (기사 제목, 자료명)"
                     value={archiveForm.title}

@@ -88,7 +88,7 @@ export default function SourceCard({
     return (
       <Card className="p-4">
         <form onSubmit={save} className="space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Input
               placeholder="제목 (예: 학생회 활동 경험)"
               value={title}

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
 import {
@@ -14,6 +14,8 @@ import {
   Lightbulb,
   ShieldCheck,
   Briefcase,
+  Menu,
+  X,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
 import SignOutButton from "./SignOutButton";
@@ -34,72 +36,110 @@ export default function Sidebar() {
   const pathname = usePathname();
   const { data: session, status } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role;
+  const [open, setOpen] = useState(false);
 
   return (
-    <aside className="w-60 shrink-0 border-r border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)] bg-[#f9f9f7] dark:bg-[#0d0d0d] flex flex-col">
-      <div className="px-5 py-5">
-        <p className="text-lg font-semibold text-[#0b0b0b] dark:text-white">자소서메이트</p>
-        <p className="text-xs text-[#898781] mt-0.5">나만의 자기소개서 작성 도우미</p>
+    <>
+      <div className="md:hidden fixed top-0 inset-x-0 z-30 h-14 flex items-center justify-between px-4 bg-[#f9f9f7] dark:bg-[#0d0d0d] border-b border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)]">
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="메뉴 열기"
+          className="p-1.5 -ml-1.5 rounded-lg text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
+        >
+          <Menu size={20} />
+        </button>
+        <p className="text-sm font-semibold text-[#0b0b0b] dark:text-white">자소서메이트</p>
+        <div className="w-8" />
       </div>
-      <nav className="flex-1 px-3 space-y-1">
-        {status !== "authenticated" ? (
-          <Link
-            href="/login"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#2a78d6] dark:text-[#3987e5] font-medium hover:bg-black/5 dark:hover:bg-white/5"
+
+      {open && (
+        <div
+          className="md:hidden fixed inset-0 z-40 bg-black/40"
+          onClick={() => setOpen(false)}
+        />
+      )}
+
+      <aside
+        className={`w-60 shrink-0 border-r border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)] bg-[#f9f9f7] dark:bg-[#0d0d0d] flex flex-col fixed md:static inset-y-0 left-0 z-50 transition-transform duration-200 ease-out ${
+          open ? "translate-x-0" : "-translate-x-full"
+        } md:translate-x-0`}
+      >
+        <div className="flex items-center justify-between px-5 py-5">
+          <div>
+            <p className="text-lg font-semibold text-[#0b0b0b] dark:text-white">자소서메이트</p>
+            <p className="text-xs text-[#898781] mt-0.5">나만의 자기소개서 작성 도우미</p>
+          </div>
+          <button
+            onClick={() => setOpen(false)}
+            aria-label="메뉴 닫기"
+            className="md:hidden p-1 rounded hover:bg-black/5 dark:hover:bg-white/5 text-[#898781]"
           >
-            로그인
-          </Link>
-        ) : (
-          <>
-            {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
-              const active = pathname === href || pathname.startsWith(href + "/");
-              return (
+            <X size={18} />
+          </button>
+        </div>
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+          {status !== "authenticated" ? (
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-[#2a78d6] dark:text-[#3987e5] font-medium hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              로그인
+            </Link>
+          ) : (
+            <>
+              {NAV_ITEMS.map(({ href, label, icon: Icon }) => {
+                const active = pathname === href || pathname.startsWith(href + "/");
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      active
+                        ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
+                        : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
+                    }`}
+                  >
+                    <Icon size={17} strokeWidth={2} />
+                    {label}
+                  </Link>
+                );
+              })}
+              {role === "admin" && (
                 <Link
-                  key={href}
-                  href={href}
+                  href="/admin"
+                  onClick={() => setOpen(false)}
                   className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                    active
+                    pathname.startsWith("/admin")
                       ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
                       : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
                   }`}
                 >
-                  <Icon size={17} strokeWidth={2} />
-                  {label}
+                  <ShieldCheck size={17} strokeWidth={2} />
+                  관리자
                 </Link>
-              );
-            })}
-            {role === "admin" && (
-              <Link
-                href="/admin"
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors ${
-                  pathname.startsWith("/admin")
-                    ? "bg-[#2a78d6]/10 text-[#2a78d6] dark:text-[#3987e5] font-medium"
-                    : "text-[#52514e] dark:text-[#c3c2b7] hover:bg-black/5 dark:hover:bg-white/5"
-                }`}
-              >
-                <ShieldCheck size={17} strokeWidth={2} />
-                관리자
-              </Link>
-            )}
-          </>
-        )}
-      </nav>
-      <div className="px-3 py-3 border-t border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)]">
-        {status === "authenticated" && session?.user && (
-          <div className="pb-2 mb-2 border-b border-[rgba(11,11,11,0.08)] dark:border-[rgba(255,255,255,0.08)]">
-            <div className="flex items-center justify-between gap-2 px-1">
-              <span className="text-xs text-[#52514e] dark:text-[#c3c2b7] truncate">
-                {session.user.email}
-              </span>
-              <SignOutButton />
+              )}
+            </>
+          )}
+        </nav>
+        <div className="px-3 py-3 border-t border-[rgba(11,11,11,0.10)] dark:border-[rgba(255,255,255,0.10)]">
+          {status === "authenticated" && session?.user && (
+            <div className="pb-2 mb-2 border-b border-[rgba(11,11,11,0.08)] dark:border-[rgba(255,255,255,0.08)]">
+              <div className="flex items-center justify-between gap-2 px-1">
+                <span className="text-xs text-[#52514e] dark:text-[#c3c2b7] truncate">
+                  {session.user.email}
+                </span>
+                <SignOutButton />
+              </div>
+              <TokenBadge />
             </div>
-            <TokenBadge />
-          </div>
-        )}
-        <ThemeToggle />
-        <SecretFooter />
-      </div>
-    </aside>
+          )}
+          <ThemeToggle />
+          <SecretFooter />
+        </div>
+      </aside>
+    </>
   );
 }
 
