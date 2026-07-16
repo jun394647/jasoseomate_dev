@@ -1,6 +1,7 @@
 import { getDb } from "@/lib/db";
 import type { ProfileSource } from "@/lib/types";
 import ProfileManager from "./ProfileManager";
+import ProfileGraph from "./ProfileGraph";
 import { getSession } from "@/lib/session";
 import { PageHeader, EmptyState } from "@/components/ui";
 
@@ -20,5 +21,10 @@ export default async function ProfilePage() {
     .prepare(`SELECT * FROM profile_sources WHERE user_id = ? ORDER BY updated_at DESC`)
     .all(session.id)) as ProfileSource[];
 
-  return <ProfileManager initialSources={sources} />;
+  return (
+    <div>
+      <ProfileManager initialSources={sources} />
+      <ProfileGraph />
+    </div>
+  );
 }
