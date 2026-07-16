@@ -9,9 +9,10 @@ export interface JobPosting {
   region?: string;
   salary?: string;
   career?: string;
+  employmentType?: string;
   deadline?: string;
   url: string;
-  source: "worknet";
+  source: "worknet" | "saramin";
 }
 
 const ENDPOINT = "https://www.work24.go.kr/cm/openApi/call/wk/callOpenApiSvcInfo210L01.do";

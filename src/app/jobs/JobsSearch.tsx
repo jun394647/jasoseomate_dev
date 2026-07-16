@@ -9,7 +9,6 @@ import type { ExternalJobLink } from "@/lib/jobLinks";
 export default function JobsSearch() {
   const [keyword, setKeyword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [configured, setConfigured] = useState<boolean | null>(null);
   const [jobs, setJobs] = useState<JobPosting[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [fallbackLinks, setFallbackLinks] = useState<ExternalJobLink[]>([]);
@@ -22,7 +21,6 @@ export default function JobsSearch() {
     try {
       const res = await fetch(`/api/jobs/search?keyword=${encodeURIComponent(keyword)}`);
       const data = await res.json();
-      setConfigured(data.configured);
       setJobs(data.jobs ?? []);
       setError(data.error ?? null);
       setFallbackLinks(data.fallbackLinks ?? []);
@@ -35,7 +33,7 @@ export default function JobsSearch() {
 
   return (
     <div>
-      <PageHeader title="채용공고" description="워크넷 채용정보를 검색하거나, 다른 채용 사이트에서 바로 찾아보세요." />
+      <PageHeader title="채용공고" description="최신 채용공고를 검색하거나, 다른 채용 사이트에서 바로 찾아보세요." />
 
       <form onSubmit={search} className="flex gap-2 mb-6">
         <Input
@@ -50,16 +48,10 @@ export default function JobsSearch() {
 
       {searched && (
         <div className="mb-6">
-          {configured === false ? (
-            <EmptyState>워크넷 연동이 설정되지 않았습니다. 아래 링크로 다른 사이트에서 검색해보세요.</EmptyState>
-          ) : error ? (
-            <EmptyState>워크넷 검색에 실패했습니다: {error}. 아래 링크로 다른 사이트에서 검색해보세요.</EmptyState>
-          ) : jobs.length === 0 ? (
-            <EmptyState>검색 결과가 없습니다. 아래 링크로 다른 사이트에서도 찾아보세요.</EmptyState>
-          ) : (
+          {jobs.length > 0 ? (
             <div className="space-y-2">
               {jobs.map((j) => (
-                <Card key={j.id} className="p-4">
+                <Card key={`${j.source}-${j.id}`} className="p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-medium text-[#0b0b0b] dark:text-white truncate">
@@ -69,6 +61,7 @@ export default function JobsSearch() {
                         {j.companyName}
                         {j.region ? ` · ${j.region}` : ""}
                         {j.career ? ` · ${j.career}` : ""}
+                        {j.employmentType ? ` · ${j.employmentType}` : ""}
                         {j.salary ? ` · ${j.salary}` : ""}
                         {j.deadline ? ` · 마감 ${j.deadline}` : ""}
                       </p>
@@ -85,6 +78,10 @@ export default function JobsSearch() {
                 </Card>
               ))}
             </div>
+          ) : error ? (
+            <EmptyState>검색에 실패했습니다: {error}. 아래 링크로 다른 사이트에서 검색해보세요.</EmptyState>
+          ) : (
+            <EmptyState>검색 결과가 없습니다. 아래 링크로 다른 사이트에서도 찾아보세요.</EmptyState>
           )}
         </div>
       )}
